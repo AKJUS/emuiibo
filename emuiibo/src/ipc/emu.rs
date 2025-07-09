@@ -1,16 +1,16 @@
-use alloc::string::ToString;
-use nx::ipc::sf::ncm;
-use nx::ipc::sf::sm;
-use nx::result::*;
-use nx::ipc::sf;
-use nx::ipc::server;
-use nx::ipc::sf::nfp;
-use nx::service;
-use nx::version;
-use crate::rc;
-use crate::emu;
 use crate::amiibo;
 use crate::amiibo::VirtualAmiiboFormat;
+use crate::emu;
+use crate::rc;
+use alloc::string::ToString;
+use nx::ipc::server;
+use nx::ipc::sf;
+use nx::ipc::sf::ncm;
+use nx::ipc::sf::nfp;
+use nx::ipc::sf::sm;
+use nx::result::*;
+use nx::service;
+use nx::version;
 
 ipc_sf_define_default_client_for_interface!(EmulationService);
 ipc_sf_define_interface_trait! {
@@ -41,7 +41,10 @@ impl IEmulationServiceServer for EmulationServer {
         Ok(emu::CURRENT_VERSION)
     }
 
-    fn get_virtual_amiibo_directory(&mut self, mut out_path: sf::OutMapAliasBuffer<u8>) -> Result<()> {
+    fn get_virtual_amiibo_directory(
+        &mut self,
+        mut out_path: sf::OutMapAliasBuffer<u8>,
+    ) -> Result<()> {
         log!("GetVirtualAmiiboDirectory -- (...)\n");
         out_path.set_string(amiibo::VIRTUAL_AMIIBO_DIR.to_string());
         Ok(())
@@ -59,12 +62,16 @@ impl IEmulationServiceServer for EmulationServer {
         Ok(())
     }
 
-    fn get_active_virtual_amiibo(&mut self, mut out_path: sf::OutMapAliasBuffer<u8>) -> Result<amiibo::fmt::VirtualAmiiboData> {
+    fn get_active_virtual_amiibo(
+        &mut self,
+        mut out_path: sf::OutMapAliasBuffer<u8>,
+    ) -> Result<amiibo::fmt::VirtualAmiiboData> {
         log!("GetActiveVirtualAmiibo -- (...)\n");
         let amiibo = emu::get_active_virtual_amiibo();
-        result_return_unless!(amiibo.is_some(), rc::ResultInvalidActiveVirtualAmiibo);
 
-        let amiibo = amiibo.as_ref().unwrap();
+        let amiibo = amiibo
+            .as_ref()
+            .ok_or(rc::ResultInvalidActiveVirtualAmiibo::make())?;
 
         let data = amiibo.produce_data()?;
         out_path.set_string(amiibo.path.clone());
@@ -100,11 +107,17 @@ impl IEmulationServiceServer for EmulationServer {
     }
 
     fn is_application_id_intercepted(&mut self, application_id: ncm::ProgramId) -> Result<bool> {
-        log!("IsApplicationIdIntercepted -- app_id: {:#X}\n", application_id.0);
+        log!(
+            "IsApplicationIdIntercepted -- app_id: {:#X}\n",
+            application_id.0
+        );
         Ok(emu::is_application_id_intercepted(application_id))
     }
 
-    fn try_parse_virtual_amiibo(&mut self, path: sf::InMapAliasBuffer<u8>) -> Result<amiibo::fmt::VirtualAmiiboData> {
+    fn try_parse_virtual_amiibo(
+        &mut self,
+        path: sf::InMapAliasBuffer<u8>,
+    ) -> Result<amiibo::fmt::VirtualAmiiboData> {
         let path_str = path.get_string();
         log!("TryParseVirtualAmiibo -- path: '{}'\n", path_str);
         let amiibo = amiibo::fmt::VirtualAmiibo::try_load(path_str)?;
@@ -114,49 +127,62 @@ impl IEmulationServiceServer for EmulationServer {
         Ok(data)
     }
 
-    fn get_active_virtual_amiibo_areas(&mut self, mut out_areas: sf::OutMapAliasBuffer<amiibo::fmt::VirtualAmiiboAreaEntry>) -> Result<u32> {
+    fn get_active_virtual_amiibo_areas(
+        &mut self,
+        mut out_areas: sf::OutMapAliasBuffer<amiibo::fmt::VirtualAmiiboAreaEntry>,
+    ) -> Result<u32> {
         log!("GetActiveVirtualAmiiboAreas -- (...)\n");
         let amiibo = emu::get_active_virtual_amiibo();
-        result_return_unless!(amiibo.is_some(), rc::ResultInvalidActiveVirtualAmiibo);
 
-        let amiibo = amiibo.as_ref().unwrap();
+        let amiibo = amiibo
+            .as_ref()
+            .ok_or(rc::ResultInvalidActiveVirtualAmiibo::make())?;
 
-        let areas = out_areas.as_slice_mut()?;
-        
+        let areas = out_areas.as_maybeuninit_mut()?;
+
         let count = areas.len().min(amiibo.areas.areas.len());
         for i in 0..count {
-            areas[i] = amiibo.areas.areas[i];
+            areas[i].write(amiibo.areas.areas[i]);
         }
 
         Ok(count as u32)
     }
-    
+
     fn get_active_virtual_amiibo_current_area(&mut self) -> Result<nfp::AccessId> {
         log!("GetActiveVirtualAmiiboCurrentArea -- (...)\n");
         let amiibo = emu::get_active_virtual_amiibo();
-        result_return_unless!(amiibo.is_some(), rc::ResultInvalidActiveVirtualAmiibo);
 
-        match amiibo.as_ref().unwrap().get_current_area() {
-            Some(area_entry) => Ok(area_entry.access_id),
-            None => Err(rc::ResultInvalidVirtualAmiiboAccessId::make())
-        }
+        Ok(amiibo
+            .as_ref()
+            .ok_or(rc::ResultInvalidActiveVirtualAmiibo::make())?
+            .get_current_area()
+            .ok_or(rc::ResultInvalidVirtualAmiiboAccessId::make())?
+            .access_id)
     }
-    
+
     fn set_active_virtual_amiibo_current_area(&mut self, access_id: nfp::AccessId) -> Result<()> {
-        log!("SetActiveVirtualAmiiboCurrentArea -- access_id: {:#X}\n", access_id);
+        log!(
+            "SetActiveVirtualAmiiboCurrentArea -- access_id: {:#X}\n",
+            access_id
+        );
         let mut amiibo = emu::get_active_virtual_amiibo();
         result_return_unless!(amiibo.is_some(), rc::ResultInvalidActiveVirtualAmiibo);
 
         if amiibo.as_mut().unwrap().set_current_area(access_id) {
             Ok(())
-        }
-        else {
+        } else {
             Err(rc::ResultInvalidVirtualAmiiboAccessId::make())
         }
     }
 
-    fn set_active_virtual_amiibo_uuid_info(&mut self, uuid_info: amiibo::fmt::VirtualAmiiboUuidInfo) -> Result<()> {
-        log!("SetActiveVirtualAmiiboUuidInfo -- uuid_info: {:?}\n", uuid_info);
+    fn set_active_virtual_amiibo_uuid_info(
+        &mut self,
+        uuid_info: amiibo::fmt::VirtualAmiiboUuidInfo,
+    ) -> Result<()> {
+        log!(
+            "SetActiveVirtualAmiiboUuidInfo -- uuid_info: {:?}\n",
+            uuid_info
+        );
         let mut amiibo = emu::get_active_virtual_amiibo();
         result_return_unless!(amiibo.is_some(), rc::ResultInvalidActiveVirtualAmiibo);
 
@@ -165,8 +191,15 @@ impl IEmulationServiceServer for EmulationServer {
 }
 
 impl server::ISessionObject for EmulationServer {
-    fn try_handle_request_by_id(&mut self, req_id: u32, protocol: nx::ipc::CommandProtocol, server_ctx: &mut server::ServerContext) -> Option<Result<()>> {
-        <Self as IEmulationServiceServer>::try_handle_request_by_id(self, req_id, protocol, server_ctx)
+    fn try_handle_request_by_id(
+        &mut self,
+        req_id: u32,
+        protocol: nx::ipc::CommandProtocol,
+        server_ctx: &mut server::ServerContext,
+    ) -> Option<Result<()>> {
+        <Self as IEmulationServiceServer>::try_handle_request_by_id(
+            self, req_id, protocol, server_ctx,
+        )
     }
 }
 
@@ -195,6 +228,7 @@ impl service::IService for EmulationService {
         false
     }
 
-    fn post_initialize(&mut self) -> Result<()> {Ok(())
+    fn post_initialize(&mut self) -> Result<()> {
+        Ok(())
     }
 }

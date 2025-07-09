@@ -1,5 +1,8 @@
 #![no_std]
 
+// let it go for now.
+#![allow(unsafe_op_in_unsafe_fn)]
+
 #[macro_use]
 extern crate nx;
 

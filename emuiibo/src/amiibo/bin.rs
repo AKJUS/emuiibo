@@ -241,7 +241,7 @@ pub struct Struct2 {
 }
 const_assert!(core::mem::size_of::<Struct2>() == 0x4);
 
-define_bit_enum! {
+define_bit_set! {
     Flags (u8) {
         None = 0,
         // TODO: more flags here? bits 0-3 are probably for internal use as they get masked out in both 3DS and here...

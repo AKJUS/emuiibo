@@ -1,41 +1,17 @@
+use nx::rc::ResultNotInitialized;
 use nx::result::*;
 use nx::ipc::sf;
-use nx::service;
-use nx::service::mii;
-use nx::service::mii::{DatabaseService, IDatabaseServiceClient};
-use nx::service::mii::IStaticServiceClient;
-use nx::sync::sys::mutex::Mutex;
+use nx::service::mii::IMiiDatabaseClient;
 use nx::fs;
 use alloc::vec::Vec;
 
-pub use generic_once_cell::OnceCell;
-
-static G_STATIC_SRV: OnceCell<Mutex, mii::StaticService> = OnceCell::new();
-static G_DB_SRV: OnceCell<Mutex, DatabaseService> = OnceCell::new();
-
-#[inline]
-fn get_static_service() -> Result<&'static mii::StaticService> {
-    G_STATIC_SRV.get().ok_or(nx::rc::ResultNotInitialized::make())
-}
-
-#[inline]
-fn get_database_service() -> Result<&'static DatabaseService> {
-    G_DB_SRV.get().ok_or(nx::rc::ResultNotInitialized::make())
-}
-
-pub fn initialize() -> Result<()> {
-    let static_service = service::new_service_object::<mii::StaticService>()?;
-    let db_service = static_service.get_database_service(mii::SpecialKeyCode::Normal)?;
-    let _ = G_STATIC_SRV.set(static_service);
-    let _ = G_DB_SRV.set(db_service);
-    Ok(())
-}
+use nx::mii;
 
 const DEFAULT_MII_NAME: &'static str = "emuiibo";
 
 #[inline]
 pub fn generate_random_mii() -> Result<mii::CharInfo> {
-    let mut char_info = get_database_service()?.build_random(sf::EnumAsPrimitiveType::from(mii::Age::All), sf::EnumAsPrimitiveType::from(mii::Gender::All), sf::EnumAsPrimitiveType::from(mii::FaceColor::All))?;
+    let mut char_info = nx::mii::get_mii_database().as_ref().ok_or(ResultNotInitialized::make())?.build_random(sf::EnumAsPrimitiveType::from(mii::Age::All), sf::EnumAsPrimitiveType::from(mii::Gender::All), sf::EnumAsPrimitiveType::from(mii::FaceColor::All))?;
     // Default name is "no name", use our own default instead
     char_info.name.set_str(DEFAULT_MII_NAME);
     Ok(char_info)
@@ -45,10 +21,10 @@ const MII_SOURCE_FLAG: mii::SourceFlag = mii::SourceFlag::Database();
 pub const EXPORTED_MIIS_DIR: &'static str = "sdmc:/emuiibo/miis";
 
 pub fn export_miis() -> Result<()> {
-    let mii_count = get_database_service()?.get_count(MII_SOURCE_FLAG)?;
-    let miis: Vec<mii::CharInfo> = vec![Default::default(); mii_count as usize];
+    let mii_count = nx::mii::get_mii_database().as_ref().ok_or(ResultNotInitialized::make())?.get_count(MII_SOURCE_FLAG)?;
+    let mut miis: Vec<mii::CharInfo> = vec![Default::default(); mii_count as usize];
 
-    let mii_total = get_database_service()?.get_1(MII_SOURCE_FLAG, sf::Buffer::from_array(&miis))?;
+    let mii_total = nx::mii::get_mii_database().as_ref().ok_or(ResultNotInitialized::make())?.get_one(MII_SOURCE_FLAG, sf::Buffer::from_mut_array(miis.as_mut_slice()))?;
     for i in 0..mii_total {
         let mii = miis[i as usize];
 
