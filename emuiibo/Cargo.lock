@@ -233,7 +233,7 @@ dependencies = [
 [[package]]
 name = "logpacket"
 version = "0.1.0"
-source = "git+https://github.com/aarch64-switch-rs/logpacket#d807c993fb4578e3809d91e3484c7d97f59eb3db"
+source = "git+https://github.com/aarch64-switch-rs/logpacket?tag=0.1.0#d807c993fb4578e3809d91e3484c7d97f59eb3db"
 
 [[package]]
 name = "memchr"
@@ -265,7 +265,7 @@ dependencies = [
 [[package]]
 name = "nx"
 version = "0.4.0"
-source = "git+https://github.com/aarch64-switch-rs/nx#16db0951cc00ad86969cb73a11144a67768c810e"
+source = "git+https://github.com/aarch64-switch-rs/nx?tag=0.4.0#f6dd691ad36ae14c964509e1b05d68f5905b02e4"
 dependencies = [
  "arrayvec",
  "atomic_enum",
@@ -288,7 +288,7 @@ dependencies = [
 [[package]]
 name = "nx-derive"
 version = "0.1.0"
-source = "git+https://github.com/aarch64-switch-rs/nx#16db0951cc00ad86969cb73a11144a67768c810e"
+source = "git+https://github.com/aarch64-switch-rs/nx?tag=0.4.0#f6dd691ad36ae14c964509e1b05d68f5905b02e4"
 dependencies = [
  "proc-macro2",
  "quote",
